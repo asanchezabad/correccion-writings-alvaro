@@ -1,17 +1,26 @@
 import streamlit as st
-import openai
 import json
 
+# Intenta importar openai y muestra un error claro si no está instalado
+try:
+    import openai
+except ModuleNotFoundError:
+    st.error("❌ La librería 'openai' no está instalada. Añádela en requirements.txt con:\n\nopenai\n")
+    st.stop()
+
 # Usa la API Key de Streamlit Secrets para seguridad
-openai.api_key = st.secrets["OPENAI_API_KEY"]
+openai.api_key = st.secrets.get("OPENAI_API_KEY", "")
+if not openai.api_key:
+    st.error("❌ No se ha configurado la clave API de OpenAI. Añádela en Secrets como OPENAI_API_KEY.")
+    st.stop()
 
 st.set_page_config(page_title="Corrección de Writings", page_icon="✍️")
-st.title("✍️ Corrección de Writings PAU")
+st.title("✍️ Corrección de Writings con IA y Rúbrica dinámica")
 texto_alumno = st.text_area("📄 Pega aquí el writing del alumno:", height=200)
 
 def evaluar_rubrica_con_gpt(text):
     prompt = f"""
-Eres un profesor que evalúa un writing en inglés de nivel B2 con esta rúbrica (puntuaciones máximas indicadas):
+Eres un profesor que evalúa un writing en inglés con esta rúbrica (puntuaciones máximas indicadas):
 
 ADECUACIÓN (máximo 1.5 puntos)
 - Cumplimiento de la tarea, registro y extensión (0.5)

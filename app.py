@@ -49,7 +49,7 @@ Devuelve la respuesta en este formato JSON:
 """
 
     response = openai.ChatCompletion.create(
-        model="gpt-4o",
+        model="gpt-4",
         messages=[{"role": "system", "content": "Eres un evaluador de writings."},
                   {"role": "user", "content": prompt}],
         temperature=0.2,
@@ -79,7 +79,7 @@ if st.button("✅ Corregir"):
 
             for criterio, nota in criterios.items():
                 st.write(f"**{criterio}: {nota} / 0.5**")
-                st.progress(nota / 0.5)
+                st.progress(min(nota / 0.5, 1.0))
                 st.caption(data["Justificaciones"].get(criterio.split()[0], ""))
 
             st.success(f"✅ **Nota total: {round(total,2)} / 3**")
@@ -87,6 +87,8 @@ if st.button("✅ Corregir"):
             st.subheader("📝 Feedback para el alumno")
             st.info(data["Feedback"])
 
-        except Exception as e:
-            st.error("❌ Error al procesar la respuesta de la IA.")
+        except json.JSONDecodeError:
+            st.error("❌ Error: La respuesta de la IA no es un JSON válido.")
             st.text(resultado_json)
+        except Exception as e:
+            st.error(f"❌ Error inesperado: {e}")

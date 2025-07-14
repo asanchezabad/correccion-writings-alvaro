@@ -1,81 +1,92 @@
 import streamlit as st
+import openai
+import json
 
-st.set_page_config(page_title="Corrección de Writings Álvaro", page_icon="✍️")
-st.title("✍️ Corrección de writings - Rúbrica PAU")
-st.write("Pega el writing de tu alumno y obtén la corrección automática con la rúbrica.")
+# Usa la API Key de Streamlit Secrets para seguridad
+openai.api_key = st.secrets["OPENAI_API_KEY"]
 
-# CAJA DE TEXTO
+st.set_page_config(page_title="Corrección de Writings", page_icon="✍️")
+st.title("✍️ Corrección de Writings con IA y Rúbrica dinámica")
 texto_alumno = st.text_area("📄 Pega aquí el writing del alumno:", height=200)
 
-# FUNCIÓN DE CORRECCIÓN
-def corregir_writing(texto_alumno):
-    """
-    Aplica la rúbrica a un writing de alumno y genera informe + feedback.
-    """
-    errores_grammar = [
-        "make people be antisocial → makes people antisocial",
-        "For solve this → To solve this",
-        "must to limit → must limit"
-    ]
-    errores_vocab = [
-        "comunicate → communicate",
-        "social medias → social media",
-        "Repite 'use' y 'people' demasiado"
-    ]
-    errores_cohesion = [
-        "Pocas transiciones (e.g., Also, In conclusion)",
-        "Falta variedad en conectores como however, therefore, as a result"
-    ]
-    errores_spelling = [
-        "goverment → government",
-        "comunicate → communicate"
-    ]
+def evaluar_rubrica_con_gpt(text):
+    prompt = f"""
+Eres un profesor que evalúa un writing en inglés con esta rúbrica (puntuaciones máximas indicadas):
 
-    rubrica = {
-        "Adecuación - Cumplimiento de la tarea": 0.25,
-        "Adecuación - Variedad de ideas y organización": 0.25,
-        "Adecuación - Cohesión y coherencia": 0.25,
-        "Expresión - Recursos gramaticales": 0.25,
-        "Expresión - Vocabulario": 0.25,
-        "Expresión - Ortografía y puntuación": 0.25,
-    }
-    nota_total = sum(rubrica.values())
+ADECUACIÓN (máximo 1.5 puntos)
+- Cumplimiento de la tarea, registro y extensión (0.5)
+- Variedad y organización de ideas (0.5)
+- Cohesión y coherencia (0.5)
 
-    feedback = (
-        "You respond to the task but your ideas are too simple and need more development. "
-        "Try to organize your arguments logically and use a wider range of connectors (e.g., 'therefore', 'as a result'). "
-        "Watch out for grammar mistakes like 'make people antisocial' → 'makes people antisocial', "
-        "and incorrect structures like 'must to limit'. Work on vocabulary variety to avoid repetition ('use', 'people'). "
-        "Also, review spelling: 'government', 'communicate'. Keep practicing for better coherence and accuracy."
+EXPRESIÓN (máximo 1.5 puntos)
+- Gramática y estructuras (0.5)
+- Vocabulario y riqueza léxica (0.5)
+- Ortografía y puntuación (0.5)
+
+Evalúa el texto siguiente y asigna una nota **(0, 0.25 o 0.5)** para cada criterio según los errores detectados. Sé riguroso: baja la nota cuando haya errores significativos o repetidos.
+Luego, genera un feedback constructivo para que el alumno mejore.
+
+Texto: '''{text}'''
+
+Devuelve la respuesta en este formato JSON:
+{
+  "Adecuacion_Cumplimiento": valor_numérico,
+  "Adecuacion_Variedad": valor_numérico,
+  "Adecuacion_Cohesion": valor_numérico,
+  "Expresion_Gramatica": valor_numérico,
+  "Expresion_Vocabulario": valor_numérico,
+  "Expresion_Ortografia": valor_numérico,
+  "Justificaciones": {
+    "Cumplimiento": texto,
+    "Variedad": texto,
+    "Cohesion": texto,
+    "Gramatica": texto,
+    "Vocabulario": texto,
+    "Ortografia": texto
+  },
+  "Feedback": texto
+}
+"""
+
+    response = openai.ChatCompletion.create(
+        model="gpt-4o",
+        messages=[{"role": "system", "content": "Eres un evaluador de writings."},
+                  {"role": "user", "content": prompt}],
+        temperature=0.2,
+        max_tokens=800,
     )
+    return response.choices[0].message.content
 
-    return rubrica, nota_total, errores_grammar, errores_vocab, errores_cohesion, errores_spelling, feedback
-
-# BOTÓN DE CORRECCIÓN
 if st.button("✅ Corregir"):
     if texto_alumno.strip() == "":
         st.warning("⚠️ Por favor, introduce un texto para corregir.")
     else:
-        rubrica, nota_total, errores_grammar, errores_vocab, errores_cohesion, errores_spelling, feedback = corregir_writing(texto_alumno)
+        resultado_json = evaluar_rubrica_con_gpt(texto_alumno)
+        try:
+            data = json.loads(resultado_json)
+            
+            st.subheader("📊 Resultado de la rúbrica")
+            criterios = {
+                "Cumplimiento de la tarea": data["Adecuacion_Cumplimiento"],
+                "Variedad y organización": data["Adecuacion_Variedad"],
+                "Cohesión y coherencia": data["Adecuacion_Cohesion"],
+                "Gramática": data["Expresion_Gramatica"],
+                "Vocabulario": data["Expresion_Vocabulario"],
+                "Ortografía y puntuación": data["Expresion_Ortografia"]
+            }
 
-        st.success(f"✅ Nota total: {nota_total} / 3")
+            total = sum(criterios.values())
 
-        st.subheader("📊 Rúbrica aplicada")
-        for criterio, nota in rubrica.items():
-            st.markdown(f"- **{criterio}**: {nota} puntos")
+            for criterio, nota in criterios.items():
+                st.write(f"**{criterio}: {nota} / 0.5**")
+                st.progress(nota / 0.5)
+                st.caption(data["Justificaciones"].get(criterio.split()[0], ""))
 
-        st.subheader("❌ Errores detectados")
-        st.markdown("**Grammar:**")
-        st.write(errores_grammar)
-        st.markdown("**Vocabulary:**")
-        st.write(errores_vocab)
-        st.markdown("**Cohesion:**")
-        st.write(errores_cohesion)
-        st.markdown("**Spelling & Punctuation:**")
-        st.write(errores_spelling)
+            st.success(f"✅ **Nota total: {round(total,2)} / 3**")
+            
+            st.subheader("📝 Feedback para el alumno")
+            st.info(data["Feedback"])
 
-        st.subheader("📝 Feedback para el alumno")
-        st.info(feedback)
-
-st.markdown("---")
-st.caption("🔒 Herramienta creada por Álvaro para uso educativo.")
+        except Exception as e:
+            st.error("❌ Error al procesar la respuesta de la IA.")
+            st.text(resultado_json)

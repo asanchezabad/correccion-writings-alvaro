@@ -1,3 +1,8 @@
+import openai
+import streamlit as st
+
+openai.api_key = st.secrets["OPENAI_API_KEY"]
+
 import streamlit as st
 
 st.set_page_config(page_title="Corrección de Writings Álvaro", page_icon="✍️")

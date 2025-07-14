@@ -1,7 +1,7 @@
 import streamlit as st
 
 st.set_page_config(page_title="Corrección de Writings Álvaro", page_icon="✍️")
-st.title("✍️ Corrección de Writings - Álvaro")
+st.title("✍️ Corrección de writings - Rúbrica PAU")
 st.write("Pega el writing de tu alumno y obtén la corrección automática con la rúbrica.")
 
 # CAJA DE TEXTO

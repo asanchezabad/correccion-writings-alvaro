@@ -6,12 +6,12 @@ import json
 openai.api_key = st.secrets["OPENAI_API_KEY"]
 
 st.set_page_config(page_title="Corrección de Writings", page_icon="✍️")
-st.title("✍️ Corrección de Writings con IA y Rúbrica dinámica")
+st.title("✍️ Corrección de Writings PAU")
 texto_alumno = st.text_area("📄 Pega aquí el writing del alumno:", height=200)
 
 def evaluar_rubrica_con_gpt(text):
     prompt = f"""
-Eres un profesor que evalúa un writing en inglés con esta rúbrica (puntuaciones máximas indicadas):
+Eres un profesor que evalúa un writing en inglés de nivel B2 con esta rúbrica (puntuaciones máximas indicadas):
 
 ADECUACIÓN (máximo 1.5 puntos)
 - Cumplimiento de la tarea, registro y extensión (0.5)

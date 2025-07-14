@@ -1,14 +1,13 @@
 import streamlit as st
 import json
 
-# Intentamos importar openai y mostramos error claro si no está instalado
 try:
     import openai
+    import openai.error
 except ModuleNotFoundError:
     st.error("❌ La librería 'openai' no está instalada. Añádela en requirements.txt con:\n\nopenai\n")
     st.stop()
 
-# Usamos la API Key de Streamlit Secrets para seguridad
 openai.api_key = st.secrets.get("OPENAI_API_KEY", "")
 if not openai.api_key:
     st.error("❌ No se ha configurado la clave API de OpenAI. Añádela en Secrets como OPENAI_API_KEY.")
@@ -57,16 +56,19 @@ Devuelve la respuesta en este formato JSON:
 }}
 """
 
-    response = openai.chat.completions.create(
-        model="gpt-4",
-        messages=[
-            {"role": "system", "content": "Eres un evaluador de writings."},
-            {"role": "user", "content": prompt},
-        ],
-        temperature=0.2,
-        max_tokens=800,
-    )
-    return response.choices[0].message.content
+    try:
+        response = openai.chat.completions.create(
+            model="gpt-4",
+            messages=[
+                {"role": "system", "content": "Eres un evaluador de writings."},
+                {"role": "user", "content": prompt},
+            ],
+            temperature=0.2,
+            max_tokens=800,
+        )
+        return response.choices[0].message.content
+    except openai.error.OpenAIError as e:
+        return f"ERROR en la llamada a OpenAI: {e}"
 
 if st.button("✅ Corregir"):
     if texto_alumno.strip() == "":
@@ -74,40 +76,42 @@ if st.button("✅ Corregir"):
     else:
         resultado_json = evaluar_rubrica_con_gpt(texto_alumno)
         
-        st.text("Respuesta IA bruta:")
-        st.text(resultado_json)  # Mostrar para depurar
-        
-        try:
-            # Extraemos solo el contenido JSON
-            start = resultado_json.find("{")
-            end = resultado_json.rfind("}") + 1
-            json_str = resultado_json[start:end]
-            data = json.loads(json_str)
+        if resultado_json.startswith("ERROR"):
+            st.error(resultado_json)
+        else:
+            st.text("Respuesta IA bruta:")
+            st.text(resultado_json)  # Mostrar para depurar
             
-            st.subheader("📊 Resultado de la rúbrica")
-            criterios = {
-                "Cumplimiento de la tarea": data["Adecuacion_Cumplimiento"],
-                "Variedad y organización": data["Adecuacion_Variedad"],
-                "Cohesión y coherencia": data["Adecuacion_Cohesion"],
-                "Gramática": data["Expresion_Gramatica"],
-                "Vocabulario": data["Expresion_Vocabulario"],
-                "Ortografía y puntuación": data["Expresion_Ortografia"]
-            }
+            try:
+                start = resultado_json.find("{")
+                end = resultado_json.rfind("}") + 1
+                json_str = resultado_json[start:end]
+                data = json.loads(json_str)
+                
+                st.subheader("📊 Resultado de la rúbrica")
+                criterios = {
+                    "Cumplimiento de la tarea": data["Adecuacion_Cumplimiento"],
+                    "Variedad y organización": data["Adecuacion_Variedad"],
+                    "Cohesión y coherencia": data["Adecuacion_Cohesion"],
+                    "Gramática": data["Expresion_Gramatica"],
+                    "Vocabulario": data["Expresion_Vocabulario"],
+                    "Ortografía y puntuación": data["Expresion_Ortografia"]
+                }
 
-            total = sum(criterios.values())
+                total = sum(criterios.values())
 
-            for criterio, nota in criterios.items():
-                st.write(f"**{criterio}: {nota} / 0.5**")
-                st.progress(min(nota / 0.5, 1.0))
-                st.caption(data["Justificaciones"].get(criterio.split()[0], ""))
+                for criterio, nota in criterios.items():
+                    st.write(f"**{criterio}: {nota} / 0.5**")
+                    st.progress(min(nota / 0.5, 1.0))
+                    st.caption(data["Justificaciones"].get(criterio.split()[0], ""))
 
-            st.success(f"✅ **Nota total: {round(total, 2)} / 3**")
-            
-            st.subheader("📝 Feedback para el alumno")
-            st.info(data["Feedback"])
+                st.success(f"✅ **Nota total: {round(total, 2)} / 3**")
+                
+                st.subheader("📝 Feedback para el alumno")
+                st.info(data["Feedback"])
 
-        except json.JSONDecodeError:
-            st.error("❌ Error: La respuesta de la IA no es un JSON válido.")
-            st.text(resultado_json)
-        except Exception as e:
-            st.error(f"❌ Error inesperado: {e}")
+            except json.JSONDecodeError:
+                st.error("❌ Error: La respuesta de la IA no es un JSON válido.")
+                st.text(resultado_json)
+            except Exception as e:
+                st.error(f"❌ Error inesperado: {e}")

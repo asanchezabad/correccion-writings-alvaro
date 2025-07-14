@@ -1,14 +1,14 @@
 import streamlit as st
 import json
 
-# Intenta importar openai y muestra un error claro si no está instalado
+# Intentamos importar openai y mostrar error claro si no está instalado
 try:
     import openai
 except ModuleNotFoundError:
     st.error("❌ La librería 'openai' no está instalada. Añádela en requirements.txt con:\n\nopenai\n")
     st.stop()
 
-# Usa la API Key de Streamlit Secrets para seguridad
+# Usamos la API Key de Streamlit Secrets para seguridad
 openai.api_key = st.secrets.get("OPENAI_API_KEY", "")
 if not openai.api_key:
     st.error("❌ No se ha configurado la clave API de OpenAI. Añádela en Secrets como OPENAI_API_KEY.")
@@ -38,23 +38,23 @@ Luego, genera un feedback constructivo para que el alumno mejore.
 Texto: '''{text}'''
 
 Devuelve la respuesta en este formato JSON:
-{
+{{
   "Adecuacion_Cumplimiento": valor_numérico,
   "Adecuacion_Variedad": valor_numérico,
   "Adecuacion_Cohesion": valor_numérico,
   "Expresion_Gramatica": valor_numérico,
   "Expresion_Vocabulario": valor_numérico,
   "Expresion_Ortografia": valor_numérico,
-  "Justificaciones": {
+  "Justificaciones": {{
     "Cumplimiento": texto,
     "Variedad": texto,
     "Cohesion": texto,
     "Gramatica": texto,
     "Vocabulario": texto,
     "Ortografia": texto
-  },
+  }},
   "Feedback": texto
-}
+}}
 """
 
     response = openai.ChatCompletion.create(
@@ -71,8 +71,16 @@ if st.button("✅ Corregir"):
         st.warning("⚠️ Por favor, introduce un texto para corregir.")
     else:
         resultado_json = evaluar_rubrica_con_gpt(texto_alumno)
+        
+        st.text("Respuesta IA bruta:")
+        st.text(resultado_json)  # Mostrar para depurar
+        
         try:
-            data = json.loads(resultado_json)
+            # Extraemos solo el contenido JSON
+            start = resultado_json.find("{")
+            end = resultado_json.rfind("}") + 1
+            json_str = resultado_json[start:end]
+            data = json.loads(json_str)
             
             st.subheader("📊 Resultado de la rúbrica")
             criterios = {
@@ -91,7 +99,7 @@ if st.button("✅ Corregir"):
                 st.progress(min(nota / 0.5, 1.0))
                 st.caption(data["Justificaciones"].get(criterio.split()[0], ""))
 
-            st.success(f"✅ **Nota total: {round(total,2)} / 3**")
+            st.success(f"✅ **Nota total: {round(total, 2)} / 3**")
             
             st.subheader("📝 Feedback para el alumno")
             st.info(data["Feedback"])
